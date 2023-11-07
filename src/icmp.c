@@ -27,14 +27,9 @@
 #define ICMP_HEADER_SIZE 8
 
 
-struct icmp* get_icmp_header(struct subuff *sub, uint32_t* icmp_payload_lenp, struct iphdr** ih, uint32_t* ip_hdr_len){
+struct icmp* get_icmp_header(struct subuff *sub){
     struct iphdr* ip_hdr = IP_HDR_FROM_SUB(sub);
-    size_t ip_hdr_len_val = ip_hdr->ihl * 4;
-    
-    if(icmp_payload_lenp != NULL) *icmp_payload_lenp = ip_hdr->len - ip_hdr_len_val;
-    if(ih != NULL) *ih = ip_hdr;
-    if(ip_hdr_len != NULL) *ip_hdr_len = ip_hdr_len_val;
-    return (struct icmp*) (((uint8_t*) ip_hdr) + ip_hdr_len_val);
+    return (struct icmp*) (((uint8_t*) ip_hdr) + IP_HDR_LEN);
 }
 
 void icmp_rx(struct subuff *sub)
@@ -47,17 +42,13 @@ void icmp_rx(struct subuff *sub)
     // Step 4: make sure you do not leak any memory allocated to the sub
 
     //get ip header to get actual size of ip header
-    struct iphdr* ip_hdr;
-    uint32_t icmp_payload_len;
-    struct icmp* icmp_hdr = get_icmp_header(sub, &icmp_payload_len, &ip_hdr, NULL);
+    struct icmp* icmp_hdr = get_icmp_header(sub);
     
-    printf("doing checsum ICMP\n");
-    if(do_csum(icmp_hdr, icmp_payload_len, 0) != 0){
+    if(do_csum(icmp_hdr, IP_PAYLOAD_LEN(IP_HDR_FROM_SUB(sub)), 0) != 0){
         printf("Error: ICMP checksum failed droping packet!\n");
         goto drp_pkt;
     }
 
-    printf("checking ICMP packet type\n");
     switch (icmp_hdr->type)
     {
 
@@ -79,7 +70,28 @@ void icmp_rx(struct subuff *sub)
     free_sub(sub);
 }
 
-//ask if its ok to change th signature
+struct icmp_reply_attempt_args{
+    uint32_t dest_addr;
+    struct subuff *sub;
+    uint8_t attemptc;
+};
+
+void icmp_reply_attempt(void* args){
+    struct icmp_reply_attempt_args* actual_args = (struct icmp_reply_attempt_args*) args;
+
+    struct subuff* sub =  actual_args->sub;
+    int res = ip_output(actual_args->dest_addr, sub);
+
+    if(res != sub->len){
+        printf("IP output err code: %d", res);
+
+        if(attemptC == 0){
+            printf("failed to send ICMP reply!\n")
+        }
+        timer_add(100, icmp_reply_attempt, );
+    }
+}
+
 void icmp_reply(struct subuff *sub)
 {
     // FIXME: implement your ICMP reply implementation here
@@ -89,29 +101,22 @@ void icmp_reply(struct subuff *sub)
     // Step 3: send it out on ip_ouput(...)
     // See how ARP processing is implemented for processing and sending packets
 
-    struct iphdr* ip_hdr;
-    uint32_t icmp_payload_len;
-    uint32_t ip_hdr_len;
-    struct icmp* icmp_hdr = get_icmp_header(sub, &icmp_payload_len, &ip_hdr, &ip_hdr_len);
+    struct iphdr* ip_hdr = IP_HDR_FROM_SUB(sub);
+    uint32_t icmp_packet_len = IP_PAYLOAD_LEN(ip_hdr);
+    struct icmp* icmp_hdr = get_icmp_header(sub);
     
-    sub_reserve(sub, ETH_HDR_LEN + IP_HDR_LEN + icmp_payload_len);
-    sub_push(sub, icmp_payload_len);
+    sub_reserve(sub, ETH_HDR_LEN + IP_HDR_LEN + icmp_packet_len);
+    sub_push(sub, icmp_packet_len);
 
     icmp_hdr->code = htons(0);
     icmp_hdr->type = htons(ICMP_V4_REPLY);
     icmp_hdr->checksum = htons(0);
 
-    icmp_hdr->checksum = do_csum(icmp_hdr, icmp_payload_len, 0);
+    icmp_hdr->checksum = do_csum(icmp_hdr, icmp_packet_len, 0);
 
-    if(do_csum(icmp_hdr, icmp_payload_len, 0) != 0){
+    if(do_csum(icmp_hdr, icmp_packet_len, 0) != 0){
         printf("invalid checksum\n");
     }
 
-    int res = ip_output(IP_HDR_FROM_SUB(sub)->saddr, sub);
-    if(res < 0){
-        printf("IP output err code: %d", res);
-    }else{
-        printf("IP output res: %d", res);
-        printf("Sub len %u\n", sub->len);
-    }
+    sub->protocol = 1;
 }
