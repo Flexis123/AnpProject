@@ -54,19 +54,16 @@ void icmp_rx(struct subuff *sub)
 
     case ICMP_V4_ECHO:
         printf("ICMP echo request\n");
-        icmp_reply(sub);
-        break;
+        return icmp_reply(sub);
 
     case ICMP_V4_REPLY:
         printf("ICMP reply request\n");
-        break;
     
     default:
         printf("Error: unssoprted type of ICMP request received!: %x\n", icmp_hdr->type);
     }
 
     drp_pkt:
-    printf("Freeing ICMP sub\n");
     free_sub(sub);
 }
 
@@ -85,11 +82,17 @@ void icmp_reply_attempt(void* args){
     if(res != sub->len){
         printf("IP output err code: %d", res);
 
-        if(attemptC == 0){
-            printf("failed to send ICMP reply!\n")
+        sub_pop(sub, IP_HDR_LEN);
+        actual_args->attemptc--;
+
+        if(actual_args->attemptc == 0){
+            printf("failed to send ICMP reply! Reply target may be down\n");
+            freesub(sub);
+            return;
         }
-        timer_add(100, icmp_reply_attempt, );
+        timer_add(100, icmp_reply_attempt, (void*) actual_args);
     }
+    free_sub(sub);
 }
 
 void icmp_reply(struct subuff *sub)
@@ -119,4 +122,10 @@ void icmp_reply(struct subuff *sub)
     }
 
     sub->protocol = 1;
+    
+    struct icmp_reply_attempt_args args;
+    args.attemptc = 10;
+    args.dest_addr = ip_hdr->saddr;
+    args.sub = sub;
+    icmp_reply_attempt((void*) &args);
 }
