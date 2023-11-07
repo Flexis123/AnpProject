@@ -64,6 +64,7 @@ struct subuff_head {
 struct subuff *alloc_sub(unsigned int size);
 void free_sub(struct subuff *skb);
 uint8_t *sub_push(struct subuff *skb, unsigned int len);
+uint8_t* sub_pop(struct subuff *skb, unsigned int len);
 uint8_t *sub_head(struct subuff *skb);
 void *sub_reserve(struct subuff *skb, unsigned int len);
 

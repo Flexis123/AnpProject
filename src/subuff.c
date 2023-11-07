@@ -44,6 +44,12 @@ uint8_t *sub_push(struct subuff *sub, unsigned int len)
     return sub->data;
 }
 
+uint8_t* sub_pop(struct subuff *sub, unsigned int len){
+    sub->data += len;
+    sub->len -= len;
+    return sub->data;
+}
+
 struct subuff *alloc_sub(unsigned int size)
 {
     struct subuff *sub = calloc(sizeof(*sub), 1);
