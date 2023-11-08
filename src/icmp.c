@@ -23,9 +23,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "config.h"
+#include "systems_headers.h"
 
 #define ICMP_HEADER_SIZE 8
-
 
 struct icmp* get_icmp_header(struct subuff *sub){
     struct iphdr* ip_hdr = IP_HDR_FROM_SUB(sub);
@@ -73,26 +73,25 @@ struct icmp_reply_attempt_args{
     uint8_t attemptc;
 };
 
-void icmp_reply_attempt(void* args){
+void* icmp_reply_attempt(void* args){
     struct icmp_reply_attempt_args* actual_args = (struct icmp_reply_attempt_args*) args;
 
-    struct subuff* sub =  actual_args->sub;
-    int res = ip_output(actual_args->dest_addr, sub);
-
-    if(res != sub->len){
-        printf("IP output err code: %d", res);
+    struct subuff* sub = actual_args->sub;
+    int succesful = 0;
+    for(uint8_t i = 0; i < actual_args->attemptc; i++){
+        if(ip_output(actual_args->dest_addr, sub) == sub->len){
+            succesful = 1;
+            break;
+        }
 
         sub_pop(sub, IP_HDR_LEN);
-        actual_args->attemptc--;
-
-        if(actual_args->attemptc == 0){
-            printf("failed to send ICMP reply! Reply target may be down\n");
-            freesub(sub);
-            return;
-        }
-        timer_oneshot(100, icmp_reply_attempt, (void*) actual_args);
+        sleep(0.1);
     }
+
+    if(!succesful) debug_ip_hdr("Failed to send ICMP reply!", IP_HDR_FROM_SUB(sub));
+
     free_sub(sub);
+    return NULL;
 }
 
 void icmp_reply(struct subuff *sub)
@@ -117,15 +116,16 @@ void icmp_reply(struct subuff *sub)
 
     icmp_hdr->checksum = do_csum(icmp_hdr, icmp_packet_len, 0);
 
-    if(do_csum(icmp_hdr, icmp_packet_len, 0) != 0){
-        printf("invalid checksum\n");
-    }
-
+    if(do_csum(icmp_hdr, icmp_packet_len, 0) != 0) debug_ip_hdr("Invalid ICMP checksum\n", ip_hdr);
+    
     sub->protocol = 1;
     
     struct icmp_reply_attempt_args args;
     args.attemptc = 10;
     args.dest_addr = ip_hdr->saddr;
-    args.sub = sub;
-    icmp_reply_attempt((void*) &args);
+    args.sub = alloc_sub(ANP_MTU_15_MAX_SIZE);
+    memcpy(args.sub, sub, ANP_MTU_15_MAX_SIZE);
+
+    pthread_t tid;
+    pthread_create(&tid, NULL, icmp_reply_attempt, &args);
 }

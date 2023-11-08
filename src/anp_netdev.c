@@ -130,6 +130,7 @@ void *netdev_rx_loop()
             return NULL;
         }
         // whatever we have received, pass it along
+
         process_packet(sub);
     }
     return NULL;
