@@ -90,7 +90,7 @@ void icmp_reply_attempt(void* args){
             freesub(sub);
             return;
         }
-        timer_add(100, icmp_reply_attempt, (void*) actual_args);
+        timer_oneshot(100, icmp_reply_attempt, (void*) actual_args);
     }
     free_sub(sub);
 }
