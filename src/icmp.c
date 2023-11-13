@@ -58,9 +58,11 @@ void icmp_rx(struct subuff *sub)
 
     case ICMP_V4_REPLY:
         printf("ICMP reply request\n");
+        break;
     
     default:
         printf("Error: unssoprted type of ICMP request received!: %x\n", icmp_hdr->type);
+        break;
     }
 
     drp_pkt:
@@ -116,16 +118,21 @@ void icmp_reply(struct subuff *sub)
 
     icmp_hdr->checksum = do_csum(icmp_hdr, icmp_packet_len, 0);
 
-    if(do_csum(icmp_hdr, icmp_packet_len, 0) != 0) debug_ip_hdr("Invalid ICMP checksum\n", ip_hdr);
+    if(do_csum(icmp_hdr, icmp_packet_len, 0) != 0) {
+        debug_ip_hdr("Invalid ICMP checksum\n", ip_hdr);
+        return;
+    }
     
-    sub->protocol = 1;
+    sub->protocol = IPP_NUM_ICMP;
     
     struct icmp_reply_attempt_args args;
     args.attemptc = 10;
     args.dest_addr = ip_hdr->saddr;
     args.sub = alloc_sub(ANP_MTU_15_MAX_SIZE);
-    memcpy(args.sub, sub, ANP_MTU_15_MAX_SIZE);
+    memcpy(args.sub, sub, sizeof(struct subuff));
+
 
     pthread_t tid;
+
     pthread_create(&tid, NULL, icmp_reply_attempt, &args);
 }

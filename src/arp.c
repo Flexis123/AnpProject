@@ -192,15 +192,12 @@ void arp_reply(struct subuff *sub, struct anp_netdev *netdev)
     arphdr->hwtype = htons(arphdr->hwtype);
     arphdr->protype = htons(arphdr->protype);
 
-    printf("sub size reply: %u\n", sub->len);
     debug_arp_payload("reply", arpdata);
     arpdata->src_ip = htonl(arpdata->src_ip);
     arpdata->dst_ip = htonl(arpdata->dst_ip);
 
-    printf("sub size before netdev_transmit: %u\n", sub->len);
     sub->dev = netdev;
     netdev_transmit(sub, arpdata->dst_mac, ETH_P_ARP);
-    printf("sub size: %u\n", sub->len);
     free_sub(sub);
 }
 

@@ -46,7 +46,6 @@ int dst_neigh_output(struct subuff *sub)
     target_dst_mac = arp_get_hwaddr(dst_addr);
 
     if (target_dst_mac) {
-        printf("doing netdev transmit in ip_output()\n");
         return netdev_transmit(sub, target_dst_mac, ETH_P_IP);
     } else {
         arp_request(src_addr, dst_addr, anp_netdev);

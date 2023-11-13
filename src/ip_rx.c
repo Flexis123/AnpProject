@@ -59,7 +59,6 @@ int ip_rx(struct subuff *sub)
     switch (ih->proto) {
         case IPP_NUM_ICMP:
             debug_ip_hdr("in", ih);
-            debug_ip("[M2] incoming ICMP packet, further ICMP packet processing is not yet implemented \n");
             icmp_rx(sub);
             return 0;
         case IPP_TCP:
@@ -68,6 +67,7 @@ int ip_rx(struct subuff *sub)
             tcp_rx(sub);
             return 0;
         default:
+            //#define ANP_PRINT_UNKNOWN_PACKETS
             #ifdef ANP_PRINT_UNKNOWN_PACKETS
             debug_ip_hdr("in", ih);
             printf("Error: Unknown IP header proto %d \n", ih->proto);

@@ -32,6 +32,7 @@ struct eth_hdr
 
 #define ETH_HDR_LEN sizeof(struct eth_hdr)
 
+#define DEBUG_ETH
 #ifdef DEBUG_ETH
 #define eth_debug(msg, hdr)                                               \
     do {                                                                \
